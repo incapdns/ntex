@@ -62,7 +62,7 @@ where
 
     pub(crate) fn process_read_buf(&mut self, buf: &ReadBuf<'_>) -> io::Result<usize> {
         let mut new_bytes = 0;
-
+    
         // get processed buffer
         buf.with_src(|src| {
             if let Some(src) = src {
@@ -81,7 +81,7 @@ where
                             .session
                             .process_new_packets()
                             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-
+    
                         let new_b = state.plaintext_bytes_to_read();
                         if new_b > 0 {
                             dst.reserve(new_b);
@@ -90,7 +90,7 @@ where
                             let v = self.session.reader().read(chunk)?;
                             unsafe { dst.advance_mut(v) };
                             new_bytes += v;
-                        } else {
+                        } else if !self.session.wants_read() || src.is_empty() {
                             break;
                         }
                     }
