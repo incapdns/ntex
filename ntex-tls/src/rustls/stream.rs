@@ -142,12 +142,22 @@ where
             let mut session = session.borrow_mut();
             let mut wrp = Wrapper(buf);
 
-            while session.wants_read() {
-                let has_data = buf.with_read_buf(|rbuf| {
-                    rbuf.with_src(|b| b.as_ref().map(|b| !b.is_empty()).unwrap_or_default())
-                });
+            loop {
+                let mut can_read = true;
 
-                if has_data {
+                while session.wants_read() {
+                    let has_data = buf.with_read_buf(|rbuf| {
+                        rbuf.with_src(|b| {
+                            println!("with_src: {:?}", b.as_ref().map(|b| b.len()));
+                            b.as_ref().map(|b| !b.is_empty()).unwrap_or_default()
+                        })
+                    });
+
+                    if !has_data {
+                        can_read = false;
+                        break;
+                    }
+
                     if session.read_tls(&mut wrp)? == 0 {
                         return Err(io::Error::new(
                             io::ErrorKind::NotConnected,
@@ -161,14 +171,19 @@ where
                         let _ = session.write_tls(&mut wrp);
                         io::Error::new(io::ErrorKind::InvalidData, err)
                     })?;
-                } else {
-                    break;
                 }
+
+                while session.wants_write() {
+                    session.write_tls(&mut wrp).map(|_| ())?;
+                }
+
+                if session.wants_read() && can_read {
+                    continue;
+                }
+
+                break;
             }
 
-            while session.wants_write() {
-                session.write_tls(&mut wrp).map(|_| ())?;
-            }
             Ok(session.is_handshaking())
         })??;
 
