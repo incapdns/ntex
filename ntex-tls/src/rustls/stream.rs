@@ -148,7 +148,6 @@ where
                 while session.wants_read() {
                     let has_data = buf.with_read_buf(|rbuf| {
                         rbuf.with_src(|b| {
-                            println!("with_src: {:?}", b.as_ref().map(|b| b.len()));
                             b.as_ref().map(|b| !b.is_empty()).unwrap_or_default()
                         })
                     });
