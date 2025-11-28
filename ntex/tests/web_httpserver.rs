@@ -8,8 +8,8 @@ use tls_openssl::ssl::SslAcceptorBuilder;
 mod rustls_utils;
 
 use ntex::http::HttpServiceConfig;
-use ntex::web::{self, App, HttpResponse, HttpServer};
-use ntex::{io::IoConfig, rt, server::TestServer, time::Seconds, time::sleep};
+use ntex::web::{self, App, HttpResponse, HttpServer, WebAppConfig};
+use ntex::{SharedCfg, io::IoConfig, rt, server::TestServer, time::Seconds, time::sleep};
 use ntex_tls::TlsConfig;
 
 #[cfg(unix)]
@@ -54,7 +54,7 @@ async fn test_run() {
     });
     let (srv, sys) = rx.recv().unwrap();
 
-    use ntex::http::client;
+    use ntex::client;
 
     let client = client::Client::build()
         .connector::<&str>(client::Connector::default())
@@ -89,7 +89,7 @@ fn ssl_acceptor() -> std::io::Result<SslAcceptorBuilder> {
 }
 
 #[cfg(feature = "openssl")]
-async fn client() -> ntex::http::client::Client {
+async fn client() -> ntex::client::Client {
     use tls_openssl::ssl::{SslConnector, SslMethod, SslVerifyMode};
     let mut builder = SslConnector::builder(SslMethod::tls()).unwrap();
     builder.set_verify(SslVerifyMode::NONE);
@@ -97,11 +97,9 @@ async fn client() -> ntex::http::client::Client {
         .set_alpn_protos(b"\x02h2\x08http/1.1")
         .map_err(|e| log::error!("Cannot set alpn protocol: {e:?}"));
 
-    ntex::http::client::Client::build()
+    ntex::client::Client::build()
         .response_timeout(Seconds(30))
-        .connector::<&str>(
-            ntex::http::client::Connector::default().openssl(builder.build()),
-        )
+        .connector::<&str>(ntex::client::Connector::default().openssl(builder.build()))
         .finish(ntex::SharedCfg::new("TEST").add(IoConfig::new().set_connect_timeout(30)))
         .await
         .unwrap()
@@ -134,6 +132,7 @@ async fn test_openssl() {
             .disable_signals()
             .bind_openssl(format!("{addr}"), builder)
             .unwrap()
+            .config(SharedCfg::new("WEB").add(WebAppConfig::new().set_secure()))
             .run();
             let _ = tx.send((srv, ntex::rt::System::current()));
             Ok(())
@@ -169,7 +168,7 @@ async fn test_rustls() {
         sys.run(move || {
             let srv = HttpServer::new(|| {
                 App::new().service(web::resource("/").route(web::to(
-                    |req: HttpRequest| async move {
+                    async |req: HttpRequest| {
                         assert!(req.app_config().secure());
                         HttpResponse::Ok().body("test")
                     },
@@ -181,6 +180,7 @@ async fn test_rustls() {
             .disable_signals()
             .bind_rustls(format!("{addr}"), config)
             .unwrap()
+            .config(SharedCfg::new("WEB").add(WebAppConfig::new().set_secure()))
             .run();
             let _ = tx.send((srv, ntex::rt::System::current()));
             Ok(())
@@ -228,14 +228,20 @@ async fn test_bind_uds() {
     });
     let (srv, sys) = rx.recv().unwrap();
 
-    use ntex::http::client;
+    use ntex::{ServiceFactory, client};
 
     let client = client::Client::build()
-        .connector::<&str>(client::Connector::default().connector(
-            ntex::service::fn_service(|_| async {
-                Ok(rt::unix_connect("/tmp/uds-test", ntex::SharedCfg::default()).await?)
-            }),
-        ))
+        .connector::<&str>(
+            client::Connector::default().connector(
+                ntex::service::fn_service(|_| async {
+                    Ok(
+                        rt::unix_connect("/tmp/uds-test", ntex::SharedCfg::default())
+                            .await?,
+                    )
+                })
+                .map_init_err(|_| unreachable!()),
+            ),
+        )
         .finish(ntex::SharedCfg::default())
         .await
         .unwrap();
@@ -280,14 +286,20 @@ async fn test_listen_uds() {
     });
     let (srv, sys) = rx.recv().unwrap();
 
-    use ntex::http::client;
+    use ntex::{ServiceFactory, client};
 
     let client = client::Client::build()
-        .connector::<&str>(client::Connector::default().connector(
-            ntex::service::fn_service(|_| async {
-                Ok(rt::unix_connect("/tmp/uds-test2", ntex::SharedCfg::default()).await?)
-            }),
-        ))
+        .connector::<&str>(
+            client::Connector::default().connector(
+                ntex::service::fn_service(|_| async {
+                    Ok(
+                        rt::unix_connect("/tmp/uds-test2", ntex::SharedCfg::default())
+                            .await?,
+                    )
+                })
+                .map_init_err(|_| unreachable!()),
+            ),
+        )
         .finish(ntex::SharedCfg::default())
         .await
         .unwrap();

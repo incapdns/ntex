@@ -7,6 +7,7 @@ use coo_kie::{Cookie, CookieJar};
 use ntex_tls::TlsConfig;
 
 use crate::channel::bstream;
+use crate::client::{Client, ClientRequest, ClientResponse, Connector};
 #[cfg(feature = "ws")]
 use crate::io::Filter;
 use crate::io::{Io, IoConfig};
@@ -16,7 +17,6 @@ use crate::service::{ServiceFactory, cfg::SharedCfg};
 use crate::ws::{WsClient, WsConnection, error::WsClientError};
 use crate::{rt::System, time::Millis, time::Seconds, time::sleep, util::Bytes};
 
-use super::client::{Client, ClientRequest, ClientResponse, Connector};
 use super::error::{HttpError, PayloadError};
 use super::header::{self, HeaderMap, HeaderName, HeaderValue};
 use super::payload::Payload;
@@ -279,6 +279,7 @@ where
 
         let system = sys.system();
         sys.run(move || {
+            println!("\n\n\n ==== {:?}", cfg);
             let srv = crate::server::build()
                 .listen("test", tcp, move |_| factory())?
                 .config("test", cfg)

@@ -5,13 +5,11 @@ use coo_kie::Cookie;
 use flate2::{Compression, read::GzDecoder, write::GzEncoder, write::ZlibEncoder};
 use rand::Rng;
 
-use ntex::http::client::error::SendRequestError;
-use ntex::http::client::{Client, Connector};
+use ntex::client::{Client, Connector, error::SendRequestError};
 use ntex::http::test::server as test_server;
 use ntex::http::{HttpMessage, HttpService, header};
 use ntex::io::IoConfig;
-use ntex::service::{cfg::SharedCfg, chain_factory, map_config};
-use ntex::web::dev::AppConfig;
+use ntex::service::{cfg::SharedCfg, chain_factory};
 use ntex::web::middleware::Compress;
 use ntex::web::{self, App, BodyEncoding, Error, HttpRequest, HttpResponse, test};
 use ntex::{time::Millis, time::Seconds, time::sleep, util::Bytes, util::Ready};
@@ -219,11 +217,8 @@ async fn test_connection_reuse() {
             num2.fetch_add(1, Ordering::Relaxed);
             Ready::Ok(io)
         })
-        .and_then(HttpService::new(map_config(
-            App::new().service(
-                web::resource("/").route(web::to(|| async { HttpResponse::Ok() })),
-            ),
-            |_| AppConfig::default(),
+        .and_then(HttpService::new(App::new().service(
+            web::resource("/").route(web::to(|| async { HttpResponse::Ok() })),
         )))
     })
     .await;
@@ -259,11 +254,8 @@ async fn test_connection_force_close() {
             num2.fetch_add(1, Ordering::Relaxed);
             Ready::Ok(io)
         })
-        .and_then(HttpService::new(map_config(
-            App::new().service(
-                web::resource("/").route(web::to(|| async { HttpResponse::Ok() })),
-            ),
-            |_| AppConfig::default(),
+        .and_then(HttpService::new(App::new().service(
+            web::resource("/").route(web::to(|| async { HttpResponse::Ok() })),
         )))
     })
     .await;
@@ -304,11 +296,10 @@ async fn test_connection_server_close() {
             num2.fetch_add(1, Ordering::Relaxed);
             Ready::Ok(io)
         })
-        .and_then(HttpService::new(map_config(
-            App::new().service(web::resource("/").route(web::to(|| async {
+        .and_then(HttpService::new(App::new().service(
+            web::resource("/").route(web::to(|| async {
                 HttpResponse::Ok().force_close().finish()
-            }))),
-            |_| AppConfig::default(),
+            })),
         )))
     })
     .await;
@@ -344,12 +335,8 @@ async fn test_connection_wait_queue() {
             num2.fetch_add(1, Ordering::Relaxed);
             Ready::Ok(io)
         })
-        .and_then(HttpService::new(map_config(
-            App::new().service(
-                web::resource("/")
-                    .route(web::to(|| async { HttpResponse::Ok().body(STR) })),
-            ),
-            |_| AppConfig::default(),
+        .and_then(HttpService::new(App::new().service(
+            web::resource("/").route(web::to(|| async { HttpResponse::Ok().body(STR) })),
         )))
     })
     .await;
@@ -393,11 +380,10 @@ async fn test_connection_wait_queue_force_close() {
             num2.fetch_add(1, Ordering::Relaxed);
             Ready::Ok(io)
         })
-        .and_then(HttpService::new(map_config(
-            App::new().service(web::resource("/").route(web::to(|| async {
+        .and_then(HttpService::new(App::new().service(
+            web::resource("/").route(web::to(|| async {
                 HttpResponse::Ok().force_close().body(STR)
-            }))),
-            |_| AppConfig::default(),
+            })),
         )))
     })
     .await;
