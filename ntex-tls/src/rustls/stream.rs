@@ -91,15 +91,13 @@ where
                             unsafe { dst.advance_mut(v) };
                             new_bytes += v;
                         } else if !self.session.wants_read() || src.is_empty() {
-                            let mut should_break = true;
                             while self.session.wants_write() {
                                 buf.with_write_buf(|buf| {
                                     let mut wrp = Wrapper(buf);
                                     self.session.write_tls(&mut wrp);
                                 });
-                                should_break = !self.session.wants_read() || src.is_empty();
                             }
-
+                            let should_break = !self.session.wants_read() || src.is_empty();
                             if should_break {
                                 break;
                             }

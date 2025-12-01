@@ -1,5 +1,13 @@
 # Changes
 
+## [3.0.0-pre.2] - 2025-11-30
+
+* Fix config usage for registered service
+
+## [3.0.0-pre.1] - 2025-11-28
+
+* Use async factories for server configuration
+
 ## [3.0.0-pre.0] - 2025-11-27
 
 * New configuration subsystem

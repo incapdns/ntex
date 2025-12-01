@@ -28,7 +28,7 @@ impl<F, R> fmt::Debug for TestServerBuilder<F, R> {
 
 impl<F, R> TestServerBuilder<F, R>
 where
-    F: Fn() -> R + Send + Clone + 'static,
+    F: AsyncFn() -> R + Send + Clone + 'static,
     R: ServiceFactory<Io, SharedCfg> + 'static,
 {
     pub fn new(factory: F) -> Self {
@@ -67,7 +67,7 @@ where
 
             sys.run(move || {
                 let server = ServerBuilder::new()
-                    .listen("test", tcp, move |_| factory())?
+                    .listen("test", tcp, async move |_| factory().await)?
                     .config("test", config)
                     .workers(1)
                     .disable_signals()
@@ -112,7 +112,7 @@ where
 /// #[ntex::test]
 /// async fn test_example() {
 ///     let mut srv = server::test_server(
-///         || http::HttpService::new(
+///         async || http::HttpService::new(
 ///             App::new().service(
 ///                 web::resource("/").to(my_handler))
 ///         )
@@ -125,7 +125,7 @@ where
 /// ```
 pub fn test_server<F, R>(factory: F) -> TestServer
 where
-    F: Fn() -> R + Send + Clone + 'static,
+    F: AsyncFn() -> R + Send + Clone + 'static,
     R: ServiceFactory<Io, SharedCfg> + 'static,
 {
     TestServerBuilder::new(factory).start()
@@ -134,7 +134,7 @@ where
 /// Start new server with server builder
 pub fn build_test_server<F>(factory: F) -> TestServer
 where
-    F: FnOnce(ServerBuilder) -> ServerBuilder + Send + 'static,
+    F: AsyncFnOnce(ServerBuilder) -> ServerBuilder + Send + 'static,
 {
     let (tx, rx) = oneshot::channel();
     // run server in separate thread
@@ -142,12 +142,16 @@ where
         let sys = System::new("ntex-test-server");
         let system = sys.system();
 
-        sys.run(|| {
-            let server = factory(super::build()).workers(1).disable_signals().run();
-            tx.send((system, server))
+        sys.block_on(async move {
+            let server = factory(super::build())
+                .await
+                .workers(1)
+                .disable_signals()
+                .run();
+            tx.send((system, server.clone()))
                 .expect("Failed to send Server to TestServer");
-            Ok(())
-        })
+            let _ = server.await;
+        });
     });
     let (system, server) = rx.recv().unwrap();
 
