@@ -612,6 +612,28 @@ impl ResponseBuilder {
             cookies: self.cookies.take(),
         }
     }
+
+    pub fn if_true<F>(&mut self, value: bool, f: F) -> &mut Self
+    where
+        F: FnOnce(&mut ResponseBuilder),
+    {
+        if value {
+            f(self);
+        }
+        self
+    }
+
+    /// This method calls provided closure with builder reference if value is
+    /// Some.
+    pub fn if_some<T, F>(&mut self, value: Option<T>, f: F) -> &mut Self
+    where
+        F: FnOnce(T, &mut ResponseBuilder),
+    {
+        if let Some(val) = value {
+            f(val, self);
+        }
+        self
+    }
 }
 
 #[inline]
