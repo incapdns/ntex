@@ -663,7 +663,7 @@ where
             .config(
                 "test",
                 SharedCfg::new("WEB-SRV")
-                    .add(HttpServiceConfig::new().headers_read_rate(
+                    .add(HttpServiceConfig::new().set_headers_read_rate(
                         ctimeout,
                         Seconds::ZERO,
                         256,
@@ -691,8 +691,8 @@ where
         .add(ntex_tls::TlsConfig::new().set_handshake_timeout(Seconds(5)))
         .add(
             ntex_h2::ServiceConfig::new()
-                .max_header_list_size(256 * 1024)
-                .max_header_continuation_frames(96),
+                .set_max_header_list_size(256 * 1024)
+                .set_max_header_continuation_frames(96),
         )
         .into();
 
@@ -717,9 +717,9 @@ where
             }
         };
 
-        Client::build()
+        Client::builder()
             .connector::<&str>(connector)
-            .finish(cfg)
+            .build(cfg)
             .await
             .unwrap()
     };
