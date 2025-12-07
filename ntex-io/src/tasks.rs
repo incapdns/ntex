@@ -159,7 +159,7 @@ impl IoContext {
                             // so we need to wake up read task to read more data
                             // otherwise read task would sleep forever
                             full = true;
-                            inner.remove_flags(Flags::BUF_R_FULL);
+                            inner.read_task.wake();
                         }
                         if inner.flags.get().is_waiting_for_read() {
                             // in case of "notify" we must wake up dispatch task
